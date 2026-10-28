@@ -301,7 +301,8 @@ const TITULO = { saida: "Registrar saída", retorno: "Registrar retorno", descar
 const MOTIVO = { emprestado: "Empréstimo", defeito: "Defeito / conserto", descartado: "Descarte", outro: "Outro motivo" };
 const $ = s => document.querySelector(s);
 const configurado = /^https:\/\//.test(window.SUPABASE_URL || "") && !!window.SUPABASE_ANON_KEY && !/COLE_AQUI/.test(window.SUPABASE_ANON_KEY);
-const sb = configurado ? supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY) : null;
+// O inventário mora no schema "inventario", separado dos outros sistemas do mesmo projeto Supabase.
+const sb = configurado ? supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, { db: { schema: "inventario" } }) : null;
 let itens = [], descartes = [], categorias = [], carregado = false, filtro = "todos", filtroCat = "", busca = "", atual = null, modo = "saida";
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -319,11 +320,20 @@ function msg(el, texto, erro) { el.textContent = texto; el.classList.toggle("err
 
 // ---- login ----
 async function mostrarTela(session) {
-  const logado = !!session;
+  let logado = !!session;
+  // O login vale para todos os sistemas do projeto; só entra quem está na lista do inventário.
+  if (logado) {
+    const { data: autorizado } = await sb.rpc("autorizado");
+    if (!autorizado) {
+      await sb.auth.signOut();
+      logado = false;
+      msg($("#msg-login"), `O login ${session.user.email} não tem acesso ao inventário. Peça para incluírem seu e-mail na lista.`, true);
+    }
+  }
   $("#tela-login").hidden = logado;
   $("#tela-app").hidden = !logado;
   $("#sessao").hidden = !logado;
-  $("#usuario").textContent = session?.user?.email || "";
+  $("#usuario").textContent = logado ? session.user.email : "";
   if (logado) carregar();
 }
 if (!sb) {
