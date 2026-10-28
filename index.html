@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Inventário de Equipamentos · efaz</title>
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#c4dfaa">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Inventário">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,500;0,600;0,700;1,500&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: faixa verde-sálvia no topo com o logo; abaixo, uma coluna — cadastro, filtros, lista com etiqueta (número) à esquerda */
+:root {
+  --bg: #f4f7f0;
+  --surface: #ffffff;
+  --ink: #1c2b1f;
+  --muted: #5a6b5d;
+  --line: #d6e0cf;
+  --band: #c4dfaa;
+  --band-ink: #1f5a2a;
+  --accent: #2f6b3a;
+  --accent-ink: #ffffff;
+  --tag: #8cc63f;
+  --tag-ink: #16301a;
+  --ok: #2f7a4f;    --ok-bg: #e2f1e7;
+  --warn: #8a5a00;  --warn-bg: #fbeccb;
+  --bad: #9b2c2c;   --bad-bg: #f7e0de;
+  --gone: #555d59;  --gone-bg: #e6e8e5;
+  --f-display: "Jost", "Futura", "Century Gothic", Arial, sans-serif;
+  --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+.topo { background: var(--band); border-bottom: 1px solid var(--line); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.topo > div { max-width: 860px; margin: 0 auto; padding-block: 18px 18px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.logo { height: 44px; width: auto; }
+.topo .titulos { flex: 1; min-width: 0; border-left: 1px solid var(--band-ink); padding-left: 18px; }
+.topo h1 { color: var(--band-ink); }
+.topo .sub { color: var(--band-ink); opacity: .85; font-style: italic; margin: 2px 0 0; }
+.sessao { font-size: 0.85rem; color: var(--band-ink); display: flex; gap: 10px; align-items: center; }
+.wrap { max-width: 860px; margin: 0 auto; padding-block: 24px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 22px; }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: 1.7rem; letter-spacing: -0.01em; margin: 0; line-height: 1.15; text-wrap: balance; }
+.label { font-family: var(--f-display); font-size: 0.74rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+.caixa { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 10px; }
+.novo form { display: grid; grid-template-columns: 130px 1fr 190px auto; gap: 10px; align-items: end; }
+.login { max-width: 380px; margin: 24px auto 0; width: 100%; }
+.login form { display: grid; gap: 12px; }
+.campo { display: grid; gap: 4px; min-width: 0; }
+input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 9px 11px; width: 100%; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#f-num { font-family: var(--f-mono); }
+button { font: inherit; font-weight: 700; cursor: pointer; border-radius: 7px; padding: 9px 14px; border: 1px solid transparent; }
+.btn { background: var(--accent); color: var(--accent-ink); }
+.btn:hover { filter: brightness(1.08); }
+.btn-sec { background: transparent; color: var(--ink); border-color: var(--line); }
+.btn-sec:hover { border-color: var(--muted); }
+.btn-link { background: none; border: none; padding: 0; color: inherit; font-weight: 400; text-decoration: underline; text-underline-offset: 2px; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.msg { margin: 0; font-size: 0.9rem; min-height: 1.4em; color: var(--muted); }
+.msg.erro { color: var(--bad); }
+
+.barra { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.filtros { display: flex; flex-wrap: wrap; gap: 6px; }
+.filtros button { background: var(--surface); color: var(--ink); border-color: var(--line); font-weight: 400; padding: 6px 12px; border-radius: 999px; font-variant-numeric: tabular-nums; }
+.filtros button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.filtros b { font-weight: 700; margin-left: 4px; }
+.barra-dir { display: flex; gap: 8px; align-items: center; width: 100%; }
+#filtro-cat { width: auto; max-width: 240px; flex: none; }
+#busca { flex: 1; min-width: 0; }
+.cat { font-size: 0.8rem; font-weight: 700; color: var(--accent); }
+.cat-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 45vh; overflow-y: auto; }
+.cat-lista li { display: flex; gap: 6px; align-items: center; }
+.cat-lista input { flex: 1; min-width: 0; }
+.cat-lista .uso { font-size: 0.8rem; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cat-nova { display: flex; gap: 6px; }
+.cat-nova input { flex: 1; min-width: 0; }
+
+ul.lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.item { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; grid-template-columns: auto 1fr auto; gap: 6px 14px; align-items: center; }
+.tag { font-family: var(--f-mono); font-weight: 700; font-size: 0.95rem; background: var(--tag); color: var(--tag-ink); padding: 4px 9px; border-radius: 4px; letter-spacing: 0.02em; white-space: nowrap; max-width: 12ch; overflow: hidden; text-overflow: ellipsis; }
+.s-descartado .tag { background: var(--gone-bg); color: var(--gone); text-decoration: line-through; }
+.info { min-width: 0; }
+.desc { font-weight: 700; overflow-wrap: anywhere; }
+.estado { font-size: 0.88rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.pill { font-size: 0.75rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; }
+.p-no-lugar { background: var(--ok-bg); color: var(--ok); }
+.p-emprestado, .p-outro { background: var(--warn-bg); color: var(--warn); }
+.p-defeito { background: var(--bad-bg); color: var(--bad); }
+.p-descartado { background: var(--gone-bg); color: var(--gone); }
+.acoes { display: flex; gap: 6px; }
+.btn-perigo { background: transparent; color: var(--bad); border-color: var(--line); }
+.btn-perigo:hover { border-color: var(--bad); }
+.btn.btn-perigo-cheio { background: var(--bad); color: var(--surface); }
+.nota { margin: 0; color: var(--muted); font-size: 0.9rem; }
+dialog .aviso { margin: 0; padding: 10px 12px; border-radius: 7px; background: var(--bad-bg); color: var(--bad); font-size: 0.9rem; }
+.descarte-info { grid-column: 2 / -1; margin: 0; font-size: 0.88rem; display: grid; gap: 2px; }
+.descarte-info div { display: flex; flex-wrap: wrap; gap: 0 8px; }
+.descarte-info dt { font-family: var(--f-display); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding-top: 2px; }
+.descarte-info dd { margin: 0; overflow-wrap: anywhere; }
+details.hist { grid-column: 1 / -1; font-size: 0.88rem; }
+details.hist summary { cursor: pointer; color: var(--muted); width: fit-content; }
+.hist ol { list-style: none; margin: 8px 0 2px; padding: 0 0 0 12px; border-left: 2px solid var(--line); display: grid; gap: 6px; }
+.hist li { display: grid; grid-template-columns: 84px 1fr; gap: 10px; }
+.hist time { font-family: var(--f-mono); font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; padding-top: 1px; }
+.hist .quem { color: var(--muted); }
+.hist .extra { margin-top: 6px; color: var(--accent); }
+
+.vazio { background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; padding: 28px 20px; text-align: center; color: var(--muted); }
+.vazio strong { display: block; color: var(--ink); font-family: var(--f-display); font-size: 1.1rem; margin-bottom: 4px; }
+
+dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); padding: 0; width: min(440px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgb(0 0 0 / .45); }
+dialog form { padding: 18px; display: grid; gap: 12px; }
+dialog h2 { font-family: var(--f-display); font-size: 1.25rem; margin: 0; }
+dialog .alvo { margin: -6px 0 0; color: var(--muted); overflow-wrap: anywhere; }
+dialog .botoes { display: flex; justify-content: flex-end; gap: 8px; }
+
+@media (max-width: 620px) {
+  .topo > div { flex-wrap: nowrap; gap: 12px; }
+  .logo { height: 30px; }
+  .topo .titulos { padding-left: 12px; }
+  #usuario { display: none; }
+  .novo form { grid-template-columns: 1fr; }
+  .barra-dir { flex-wrap: wrap; }
+  #filtro-cat { max-width: none; flex: 1 1 100%; }
+  #b-cats { width: 100%; }
+  .item { grid-template-columns: auto 1fr; }
+  .acoes { grid-column: 1 / -1; }
+  .acoes button { flex: 1; }
+  .descarte-info { grid-column: 1 / -1; }
+}
+
+/* ---- celular ---- */
+.abrir-novo { display: none; }
+@media (max-width: 620px) {
+  body { font-size: 16px; }
+  input, select, textarea { font-size: 16px; min-height: 44px; }
+  button { min-height: 44px; }
+  h1 { font-size: 1.35rem; }
+  .topo > div { padding-block: 14px; }
+  .topo .sub { display: none; }
+  .wrap { padding-block: 16px 48px; gap: 16px; }
+  .abrir-novo { display: block; width: 100%; }
+  .novo:not(.aberto) { display: none; }
+  .barra { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .filtros { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; min-width: 0; margin-inline: -16px; padding-inline: 16px; }
+  .filtros::-webkit-scrollbar { display: none; }
+  .filtros button { flex: none; min-height: 40px; }
+  .item { padding: 14px; }
+  details.hist summary { padding-block: 8px; }
+  .hist li { grid-template-columns: 78px 1fr; }
+  dialog { width: 100%; max-width: 100%; margin: auto 0 0; border-radius: 16px 16px 0 0; border-bottom: none; max-height: 92dvh; }
+  dialog form { padding-bottom: max(18px, env(safe-area-inset-bottom, 0px)); }
+  dialog .botoes { position: sticky; bottom: 0; background: var(--surface); padding-top: 10px; margin-top: -2px; }
+  dialog .botoes button { flex: 1; }
+  .cat-lista { max-height: 50dvh; }
+}
+</style>
+</head>
+<body>
+
+<header class="topo"><div>
+  <img class="logo" src="logo-efaz.png" alt="efaz">
+  <div class="titulos">
+    <h1>Inventário de Equipamentos</h1>
+    <p class="sub">Toda saída e retorno fica registrada no histórico.</p>
+  </div>
+  <div class="sessao" id="sessao" hidden><span id="usuario"></span><button class="btn-link" id="sair">Sair</button></div>
+</div></header>
+
+<div class="wrap">
+  <section class="caixa login" id="tela-login" hidden aria-labelledby="t-login">
+    <span class="label" id="t-login">Entrar</span>
+    <form id="form-login">
+      <div class="campo"><label class="label" for="l-email">E-mail</label><input id="l-email" type="email" required autocomplete="username"></div>
+      <div class="campo"><label class="label" for="l-senha">Senha</label><input id="l-senha" type="password" required autocomplete="current-password"></div>
+      <button class="btn" type="submit" id="b-login">Entrar</button>
+      <p class="msg" id="msg-login" role="status"></p>
+    </form>
+  </section>
+
+  <div id="tela-app" hidden style="display:grid;gap:22px">
+  <button type="button" class="btn abrir-novo" id="b-abrir-novo" aria-expanded="false" aria-controls="sec-novo">+ Cadastrar equipamento</button>
+    <section id="sec-novo" class="caixa novo" aria-labelledby="t-novo">
+      <span class="label" id="t-novo">Cadastrar equipamento</span>
+      <form id="form-novo" autocomplete="off">
+        <div class="campo">
+          <label class="label" for="f-num">Número</label>
+          <input id="f-num" required maxlength="40" placeholder="Ex.: 0042">
+        </div>
+        <div class="campo">
+          <label class="label" for="f-desc">Descrição</label>
+          <input id="f-desc" required maxlength="200" placeholder="Ex.: Projetor Epson, sala 3">
+        </div>
+        <div class="campo">
+          <label class="label" for="f-cat">Categoria</label>
+          <select id="f-cat"><option value="">Sem categoria</option></select>
+        </div>
+        <button class="btn" type="submit" id="b-novo">Cadastrar</button>
+      </form>
+      <p class="msg" id="msg-novo" role="status"></p>
+    </section>
+
+    <section style="display:grid;gap:12px">
+      <div class="barra">
+        <div class="filtros" id="filtros" role="group" aria-label="Filtrar por situação">
+          <button type="button" data-f="todos" aria-pressed="true">Todos<b id="c-todos">0</b></button>
+          <button type="button" data-f="no-lugar" aria-pressed="false">No lugar<b id="c-no-lugar">0</b></button>
+          <button type="button" data-f="fora" aria-pressed="false">Fora do lugar<b id="c-fora">0</b></button>
+          <button type="button" data-f="descartado" aria-pressed="false">Descartados<b id="c-descartado">0</b></button>
+        </div>
+        <button type="button" class="btn-sec" id="b-cats">Gerenciar categorias</button>
+        <div class="barra-dir">
+          <select id="filtro-cat" aria-label="Filtrar por categoria"><option value="">Todas as categorias</option></select>
+          <input id="busca" type="search" placeholder="Buscar número ou descrição" aria-label="Buscar">
+        </div>
+      </div>
+      <p class="nota" id="nota-desc" hidden>Itens que saíram do inventário de vez. O número original fica registrado aqui e já pode ser usado em outro equipamento.</p>
+      <ul class="lista" id="lista"></ul>
+      <div class="vazio" id="vazio"><strong>Carregando inventário…</strong></div>
+    </section>
+  </div>
+</div>
+
+<dialog id="dlg">
+  <form id="form-dlg" method="dialog">
+    <h2 id="d-titulo">Registrar saída</h2>
+    <p class="alvo" id="d-alvo"></p>
+    <p class="aviso" id="d-aviso"></p>
+    <div class="campo" id="w-motivo">
+      <label class="label" for="d-motivo">Motivo</label>
+      <select id="d-motivo">
+        <option value="emprestado">Empréstimo</option>
+        <option value="defeito">Defeito / conserto</option>
+        <option value="outro">Outro motivo</option>
+      </select>
+    </div>
+    <div class="campo" id="w-destino">
+      <label class="label" for="d-destino" id="l-destino">Com quem está</label>
+      <input id="d-destino" maxlength="120" placeholder="Ex.: Prof. Maria, sala 5">
+    </div>
+    <div class="campo" id="w-porque">
+      <label class="label" for="d-porque">Por que foi descartado</label>
+      <input id="d-porque" maxlength="200" placeholder="Ex.: Tela quebrada, conserto não compensa">
+    </div>
+    <div class="campo" id="w-oque">
+      <label class="label" for="d-oque">O que foi feito com ele</label>
+      <input id="d-oque" maxlength="200" placeholder="Ex.: Enviado para reciclagem de eletrônicos">
+    </div>
+    <div class="campo" id="w-desc">
+      <label class="label" for="d-desc">Descrição</label>
+      <input id="d-desc" maxlength="200">
+    </div>
+    <div class="campo" id="w-cat">
+      <label class="label" for="d-cat">Categoria</label>
+      <select id="d-cat"><option value="">Sem categoria</option></select>
+    </div>
+    <div class="campo" id="w-data">
+      <label class="label" for="d-data">Data</label>
+      <input id="d-data" type="date">
+    </div>
+    <div class="campo" id="w-obs">
+      <label class="label" for="d-obs">Observação (opcional)</label>
+      <textarea id="d-obs" rows="2" maxlength="300"></textarea>
+    </div>
+    <p class="msg" id="msg-dlg" role="status"></p>
+    <div class="botoes">
+      <button type="button" class="btn-sec" id="d-cancelar">Cancelar</button>
+      <button type="submit" class="btn" id="d-ok">Registrar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-cats">
+  <form id="form-cats" method="dialog">
+    <h2>Categorias</h2>
+    <p class="alvo">Para renomear, edite o nome e aperte Enter. Os equipamentos acompanham a mudança.</p>
+    <ul class="cat-lista" id="cat-lista"></ul>
+    <div class="cat-nova">
+      <input id="cat-nova" maxlength="60" placeholder="Nova categoria" aria-label="Nova categoria">
+      <button type="button" class="btn" id="b-cat-add">Adicionar</button>
+    </div>
+    <p class="msg" id="msg-cats" role="status"></p>
+    <div class="botoes"><button type="button" class="btn-sec" id="b-cats-fechar">Fechar</button></div>
+  </form>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+const ROTULO = { "no-lugar": "No lugar", emprestado: "Emprestado", defeito: "Defeito / conserto", outro: "Fora (outro motivo)" };
+const TITULO = { saida: "Registrar saída", retorno: "Registrar retorno", descartar: "Descartar equipamento", editar: "Editar equipamento" };
+const MOTIVO = { emprestado: "Empréstimo", defeito: "Defeito / conserto", descartado: "Descarte", outro: "Outro motivo" };
+const $ = s => document.querySelector(s);
+const configurado = /^https:\/\//.test(window.SUPABASE_URL || "") && !!window.SUPABASE_ANON_KEY && !/COLE_AQUI/.test(window.SUPABASE_ANON_KEY);
+const sb = configurado ? supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY) : null;
+let itens = [], descartes = [], categorias = [], carregado = false, filtro = "todos", filtroCat = "", busca = "", atual = null, modo = "saida";
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const hoje = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+const fmt = d => d ? d.split("-").reverse().join("/") : "";
+const porNumero = (a, b) => a.numero.localeCompare(b.numero, "pt-BR", { numeric: true });
+const fora = s => s === "emprestado" || s === "defeito" || s === "outro";
+const erroTexto = e => e?.code === "23505" ? "Já existe um equipamento com esse número." :
+  e?.code === "P0001" ? e.message :
+  e?.code === "42501" ? "Você não tem permissão para alterar este inventário." : "Não foi possível salvar. Verifique a conexão e tente de novo.";
+const catNome = id => categorias.find(c => c.id === id)?.nome || "";
+const casaCat = i => !filtroCat || (filtroCat === "_sem" ? !catNome(i.categoria_id) : i.categoria_id === Number(filtroCat));
+const casaCatDesc = i => !filtroCat || (filtroCat === "_sem" ? !i.categoria : i.categoria === catNome(Number(filtroCat)));
+function msg(el, texto, erro) { el.textContent = texto; el.classList.toggle("erro", !!erro); }
+
+// ---- login ----
+async function mostrarTela(session) {
+  const logado = !!session;
+  $("#tela-login").hidden = logado;
+  $("#tela-app").hidden = !logado;
+  $("#sessao").hidden = !logado;
+  $("#usuario").textContent = session?.user?.email || "";
+  if (logado) carregar();
+}
+if (!sb) {
+  $("#tela-login").hidden = false;
+  $("#b-login").disabled = true;
+  msg($("#msg-login"), "Sistema ainda não configurado: preencha o endereço e a chave do Supabase no arquivo config.js.", true);
+} else {
+sb.auth.getSession().then(({ data }) => mostrarTela(data.session));
+sb.auth.onAuthStateChange((evento, session) => { if (evento !== "TOKEN_REFRESHED") mostrarTela(session); });
+}
+
+$("#form-login").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("#b-login").disabled = true;
+  const { error } = await sb.auth.signInWithPassword({ email: $("#l-email").value.trim(), password: $("#l-senha").value });
+  $("#b-login").disabled = false;
+  msg($("#msg-login"), error ? "E-mail ou senha incorretos." : "", !!error);
+});
+$("#sair").addEventListener("click", () => sb.auth.signOut());
+
+// ---- dados ----
+async function carregar() {
+  const [eq, ds, cs] = await Promise.all([
+    sb.from("equipamentos").select("*, movimentacoes(*)").order("criado_em", { referencedTable: "movimentacoes", ascending: false }),
+    sb.from("descartados").select("*"),
+    sb.from("categorias").select("id, nome"),
+  ]);
+  carregado = true;
+  if (eq.error || ds.error || cs.error) { itens = []; descartes = []; render("Não foi possível carregar o inventário. Recarregue a página."); return; }
+  itens = eq.data; descartes = ds.data; categorias = cs.data;
+  preencherSelects(); renderCats(); render();
+}
+window.addEventListener("focus", () => { if (!$("#tela-app").hidden) carregar(); });
+
+function histHtml(lista) {
+  return (lista || []).map(h => {
+    let t = h.tipo === "cadastro" ? "Cadastrado no inventário" :
+      h.tipo === "retorno" ? "Voltou ao lugar" :
+      h.tipo === "descarte" ? `Descartado: ${esc(h.porque)}` :
+      `Saída: ${esc(MOTIVO[h.motivo] || h.motivo)}${h.destino ? " · " + esc(h.destino) : ""}`;
+    if (h.obs) t += ` <span class="quem">— ${esc(h.obs)}</span>`;
+    if (h.registrado_por) t += ` <span class="quem">(por ${esc(h.registrado_por)})</span>`;
+    return `<li><time>${fmt(h.data)}</time><span>${t}</span></li>`;
+  }).join("");
+}
+
+function render(falha) {
+  const cont = { todos: itens.length, "no-lugar": 0, fora: 0, descartado: descartes.length };
+  for (const i of itens) { if (i.situacao === "no-lugar") cont["no-lugar"]++; else cont.fora++; }
+  for (const k in cont) $("#c-" + k).textContent = cont[k];
+
+  const q = busca.trim().toLowerCase();
+  const casa = i => !q || i.numero.toLowerCase().includes(q) || i.descricao.toLowerCase().includes(q);
+  const abertos = new Set([...document.querySelectorAll("details.hist[open]")].map(d => d.dataset.id));
+  const naLixeira = filtro === "descartado";
+  $("#nota-desc").hidden = !naLixeira;
+
+  let vis;
+  if (naLixeira) {
+    vis = descartes.filter(i => casa(i) && casaCatDesc(i)).sort((a, b) => b.data.localeCompare(a.data) || porNumero(a, b));
+    $("#lista").innerHTML = vis.map(i => `<li class="item s-descartado">
+      <div class="tag" title="Número original ${esc(i.numero)}">${esc(i.numero)}</div>
+      <div class="info"><div class="desc">${esc(i.descricao)}</div>
+        <div class="estado">${i.categoria ? `<span class="cat">${esc(i.categoria)}</span>` : ""}<span class="pill p-descartado">Descartado</span><span>em ${fmt(i.data)}</span></div></div>
+      <dl class="descarte-info">
+        <div><dt>Por quê</dt><dd>${esc(i.porque)}</dd></div>
+        <div><dt>O que foi feito</dt><dd>${esc(i.oque)}</dd></div>
+        ${i.obs ? `<div><dt>Observação</dt><dd>${esc(i.obs)}</dd></div>` : ""}
+        ${i.registrado_por ? `<div><dt>Registrado por</dt><dd>${esc(i.registrado_por)}</dd></div>` : ""}
+      </dl>
+      <details class="hist" data-id="d${i.id}" ${abertos.has("d" + i.id) ? "open" : ""}><summary>Histórico (${(i.historico || []).length})</summary>
+        <ol>${histHtml(i.historico)}</ol>
+      </details>
+    </li>`).join("");
+  } else {
+    vis = itens.filter(i => (filtro === "todos" || (filtro === "fora" ? fora(i.situacao) : i.situacao === filtro)) && casa(i) && casaCat(i)).sort(porNumero);
+    $("#lista").innerHTML = vis.map(i => {
+      const sit = i.situacao;
+      const det = sit === "no-lugar" ? "" : `${i.destino ? (sit === "emprestado" ? "com " : "· ") + esc(i.destino) + " " : ""}desde ${fmt(i.desde)}`;
+      const botao = sit === "no-lugar"
+        ? `<button class="btn-sec" data-acao="saida" data-id="${i.id}">Registrar saída</button>`
+        : `<button class="btn-sec" data-acao="retorno" data-id="${i.id}">Registrar retorno</button>`;
+      return `<li class="item s-${sit}">
+        <div class="tag" title="${esc(i.numero)}">${esc(i.numero)}</div>
+        <div class="info"><div class="desc">${esc(i.descricao)}</div>
+          <div class="estado">${catNome(i.categoria_id) ? `<span class="cat">${esc(catNome(i.categoria_id))}</span>` : ""}<span class="pill p-${sit}">${ROTULO[sit] || esc(sit)}</span><span>${det}</span></div></div>
+        <div class="acoes">${botao}<button class="btn-perigo" data-acao="descartar" data-id="${i.id}">Descartar</button></div>
+        <details class="hist" data-id="${i.id}" ${abertos.has(String(i.id)) ? "open" : ""}><summary>Histórico (${(i.movimentacoes || []).length})</summary>
+          <ol>${histHtml(i.movimentacoes)}</ol>
+          <div class="extra"><button class="btn-link" data-acao="editar" data-id="${i.id}">Editar descrição ou categoria</button></div>
+        </details>
+      </li>`;
+    }).join("");
+  }
+
+  const vazio = $("#vazio");
+  const mostra = html => { vazio.hidden = false; vazio.innerHTML = html; };
+  if (falha) mostra(`<strong>Inventário indisponível</strong>${esc(falha)}`);
+  else if (!carregado) mostra("<strong>Carregando inventário…</strong>");
+  else if (naLixeira && !descartes.length) mostra("<strong>Nenhum equipamento descartado</strong>Quando você descartar um item, ele aparece aqui com o número original, a data e o motivo.");
+  else if (!naLixeira && !itens.length) mostra("<strong>Nenhum equipamento cadastrado</strong>Use o formulário acima: informe o número da etiqueta e uma descrição.");
+  else if (!vis.length) mostra("<strong>Nada encontrado</strong>Nenhum equipamento corresponde ao filtro ou à busca.");
+  else vazio.hidden = true;
+}
+
+$("#filtros").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  filtro = b.dataset.f;
+  document.querySelectorAll("#filtros button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  render();
+});
+$("#busca").addEventListener("input", e => { busca = e.target.value; render(); });
+$("#filtro-cat").addEventListener("change", e => { filtroCat = e.target.value; render(); });
+
+$("#form-novo").addEventListener("submit", async e => {
+  e.preventDefault();
+  const el = $("#msg-novo"), numero = $("#f-num").value.trim(), descricao = $("#f-desc").value.trim();
+  if (!numero || !descricao) return msg(el, "Preencha o número e a descrição.", true);
+  $("#b-novo").disabled = true;
+  const { error } = await sb.from("equipamentos").insert({ numero, descricao, categoria_id: Number($("#f-cat").value) || null, desde: hoje() });
+  $("#b-novo").disabled = false;
+  if (error) return msg(el, error.code === "23505" ? `O número ${numero} já está em uso. Para reutilizar, descarte o item atual antes.` : erroTexto(error), true);
+  const reuso = descartes.some(d => d.numero.toLowerCase() === numero.toLowerCase());
+  $("#f-num").value = ""; $("#f-desc").value = "";
+  msg(el, reuso ? `Equipamento ${numero} cadastrado. O item anterior com esse número continua na lista de descartados.` : `Equipamento ${numero} cadastrado.`);
+  $("#f-num").focus();
+  carregar();
+});
+
+function mostrar(id, vis) { $(id).hidden = !vis; }
+$("#lista").addEventListener("click", e => {
+  const b = e.target.closest("button[data-acao]"); if (!b) return;
+  atual = itens.find(i => String(i.id) === b.dataset.id); if (!atual) return;
+  modo = b.dataset.acao;
+  $("#d-alvo").textContent = `${atual.numero} · ${atual.descricao}`;
+  $("#d-titulo").textContent = TITULO[modo];
+  $("#d-ok").textContent = modo === "editar" ? "Salvar" : modo === "descartar" ? "Descartar" : "Registrar";
+  $("#d-ok").className = modo === "descartar" ? "btn btn-perigo-cheio" : "btn";
+  $("#d-aviso").textContent = modo === "descartar" ? `O item sai do inventário e vai para a lista de descartados. O número ${atual.numero} fica livre para outro equipamento.` : "";
+  mostrar("#d-aviso", modo === "descartar");
+  mostrar("#w-motivo", modo === "saida"); mostrar("#w-destino", modo === "saida");
+  mostrar("#w-porque", modo === "descartar"); mostrar("#w-oque", modo === "descartar");
+  mostrar("#w-data", modo !== "editar"); mostrar("#w-obs", modo !== "editar"); mostrar("#w-desc", modo === "editar"); mostrar("#w-cat", modo === "editar");
+  $("#d-cat").value = catNome(atual.categoria_id) ? String(atual.categoria_id) : "";
+  $("#d-motivo").value = "emprestado"; $("#d-destino").value = ""; $("#d-obs").value = "";
+  $("#d-porque").value = ""; $("#d-oque").value = "";
+  $("#d-data").value = hoje(); $("#d-desc").value = atual.descricao;
+  atualizaDestino(); msg($("#msg-dlg"), "");
+  $("#dlg").showModal();
+});
+function atualizaDestino() {
+  const m = $("#d-motivo").value;
+  $("#l-destino").textContent = m === "emprestado" ? "Com quem está" : m === "defeito" ? "Onde está (assistência, técnico…)" : "Para onde foi";
+}
+$("#d-motivo").addEventListener("change", atualizaDestino);
+$("#d-cancelar").addEventListener("click", () => $("#dlg").close());
+
+$("#form-dlg").addEventListener("submit", async e => {
+  e.preventDefault();
+  if (!atual) return;
+  const el = $("#msg-dlg"), data = $("#d-data").value || hoje(), obs = $("#d-obs").value.trim();
+  let res;
+  $("#d-ok").disabled = true;
+  if (modo === "descartar") {
+    const porque = $("#d-porque").value.trim(), oque = $("#d-oque").value.trim();
+    if (!porque || !oque) { $("#d-ok").disabled = false; return msg(el, "Informe por que foi descartado e o que foi feito com ele.", true); }
+    res = await sb.rpc("descartar", { p_equipamento_id: atual.id, p_porque: porque, p_oque: oque, p_obs: obs, p_data: data });
+  } else if (modo === "editar") {
+    const d = $("#d-desc").value.trim();
+    if (!d) { $("#d-ok").disabled = false; return msg(el, "A descrição não pode ficar vazia.", true); }
+    res = await sb.from("equipamentos").update({ descricao: d, categoria_id: Number($("#d-cat").value) || null }).eq("id", atual.id);
+  } else {
+    const motivo = modo === "saida" ? $("#d-motivo").value : null, destino = modo === "saida" ? $("#d-destino").value.trim() : "";
+    if (motivo === "emprestado" && !destino) { $("#d-ok").disabled = false; return msg(el, "Informe com quem o equipamento está.", true); }
+    res = await sb.rpc("registrar_movimento", { p_equipamento_id: atual.id, p_tipo: modo, p_motivo: motivo, p_destino: destino, p_obs: obs, p_data: data });
+  }
+  $("#d-ok").disabled = false;
+  if (res.error) return msg(el, erroTexto(res.error), true);
+  $("#dlg").close();
+  carregar();
+});
+
+// ---- categorias ----
+function preencherSelects() {
+  const ops = [...categorias].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+    .map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join("");
+  for (const sel of ["#f-cat", "#d-cat"]) {
+    const v = $(sel).value; $(sel).innerHTML = `<option value="">Sem categoria</option>` + ops;
+    $(sel).value = categorias.some(c => String(c.id) === v) ? v : "";
+  }
+  $("#filtro-cat").innerHTML = `<option value="">Todas as categorias</option>${ops}<option value="_sem">Sem categoria</option>`;
+  if (filtroCat && filtroCat !== "_sem" && !categorias.some(c => String(c.id) === filtroCat)) filtroCat = "";
+  $("#filtro-cat").value = filtroCat;
+}
+function renderCats(forcar) {
+  if (!$("#dlg-cats").open) return;
+  if (!forcar && $("#cat-lista").contains(document.activeElement)) return;
+  const uso = id => itens.filter(i => i.categoria_id === id).length;
+  $("#cat-lista").innerHTML = [...categorias].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")).map(c => `<li>
+    <input value="${esc(c.nome)}" data-id="${c.id}" maxlength="60" aria-label="Nome da categoria">
+    <span class="uso">${uso(c.id)} ${uso(c.id) === 1 ? "item" : "itens"}</span>
+    <button type="button" class="btn-perigo" data-excluir="${c.id}">Excluir</button>
+  </li>`).join("") || `<li class="uso">Nenhuma categoria ainda.</li>`;
+}
+const catErro = (e, nome) => e?.code === "23505" ? `Já existe a categoria ${nome}.` : erroTexto(e);
+
+$("#b-cats").addEventListener("click", () => { msg($("#msg-cats"), ""); $("#dlg-cats").showModal(); renderCats(true); });
+$("#b-cats-fechar").addEventListener("click", () => $("#dlg-cats").close());
+$("#form-cats").addEventListener("submit", e => e.preventDefault());
+
+async function adicionarCat() {
+  const el = $("#msg-cats"), nome = $("#cat-nova").value.trim();
+  if (!nome) return msg(el, "Digite o nome da categoria.", true);
+  const { error } = await sb.from("categorias").insert({ nome });
+  if (error) return msg(el, catErro(error, nome), true);
+  $("#cat-nova").value = ""; msg(el, `Categoria ${nome} criada.`);
+  await carregar(); renderCats(true);
+}
+$("#b-cat-add").addEventListener("click", adicionarCat);
+$("#cat-nova").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); adicionarCat(); } });
+
+$("#cat-lista").addEventListener("keydown", e => { if (e.key === "Enter" && e.target.matches("input")) { e.preventDefault(); e.target.blur(); } });
+$("#cat-lista").addEventListener("change", async e => {
+  const inp = e.target.closest("input[data-id]"); if (!inp) return;
+  const el = $("#msg-cats"), id = Number(inp.dataset.id), nome = inp.value.trim(), antigo = catNome(id);
+  if (!nome) { inp.value = antigo; return msg(el, "O nome não pode ficar vazio.", true); }
+  if (nome === antigo) return;
+  const { error } = await sb.from("categorias").update({ nome }).eq("id", id);
+  if (error) { inp.value = antigo; return msg(el, catErro(error, nome), true); }
+  msg(el, `${antigo} agora se chama ${nome}.`); carregar();
+});
+$("#cat-lista").addEventListener("click", async e => {
+  const b = e.target.closest("button[data-excluir]"); if (!b) return;
+  const id = Number(b.dataset.excluir), usados = itens.filter(i => i.categoria_id === id).length;
+  if (!b.dataset.confirmar) {
+    b.dataset.confirmar = "1";
+    b.textContent = usados ? `Confirmar (${usados} ${usados === 1 ? "fica" : "ficam"} sem categoria)` : "Confirmar exclusão";
+    return;
+  }
+  const el = $("#msg-cats"), nome = catNome(id);
+  // Os equipamentos dessa categoria ficam "sem categoria" (on delete set null no banco).
+  const { error } = await sb.from("categorias").delete().eq("id", id);
+  if (error) return msg(el, erroTexto(error), true);
+  msg(el, `Categoria ${nome} excluída.`); await carregar(); renderCats(true);
+});
+
+$("#b-abrir-novo").addEventListener("click", () => {
+  const aberto = $("#sec-novo").classList.toggle("aberto");
+  $("#b-abrir-novo").setAttribute("aria-expanded", aberto);
+  $("#b-abrir-novo").textContent = aberto ? "Fechar cadastro" : "+ Cadastrar equipamento";
+  $("#b-abrir-novo").className = aberto ? "btn-sec abrir-novo" : "btn abrir-novo";
+  if (aberto) $("#f-num").focus();
+});
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
