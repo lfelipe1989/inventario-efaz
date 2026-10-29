@@ -73,7 +73,9 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .filtros button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .filtros b { font-weight: 700; margin-left: 4px; }
 .barra-dir { display: flex; gap: 8px; align-items: center; width: 100%; }
-#filtro-cat { width: auto; max-width: 240px; flex: none; }
+.filtro-lista { width: auto; max-width: 220px; flex: none; }
+.gerenciar { display: flex; gap: 8px; flex-wrap: wrap; }
+.gerenciar .curto { display: none; }
 #busca { flex: 1; min-width: 0; }
 .cat { font-size: 0.8rem; font-weight: 700; color: var(--accent); }
 .local { font-size: 0.75rem; font-weight: 700; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 0 7px; overflow-wrap: anywhere; }
@@ -135,8 +137,12 @@ dialog .botoes { display: flex; justify-content: flex-end; gap: 8px; }
   #usuario { display: none; }
   .novo form { grid-template-columns: 1fr; }
   .barra-dir { flex-wrap: wrap; }
-  #filtro-cat { max-width: none; flex: 1 1 100%; }
-  #b-cats { width: 100%; }
+  .filtro-lista { max-width: none; flex: 1 1 100%; min-width: 0; }
+  .gerenciar .longo { display: none; }
+  .gerenciar .curto { display: inline; }
+  #busca { flex: 1 1 100%; }
+  .gerenciar { width: 100%; }
+  .gerenciar button { flex: 1; }
   .item { grid-template-columns: auto 1fr; }
   .acoes { grid-column: 1 / -1; }
   .acoes button { flex: 1; }
@@ -211,7 +217,7 @@ dialog .botoes { display: flex; justify-content: flex-end; gap: 8px; }
         </div>
         <div class="campo">
           <label class="label" for="f-local">Local</label>
-          <input id="f-local" maxlength="60" placeholder="Ex.: CPD" list="locais" autocomplete="off">
+          <select id="f-local"><option value="">Sem local</option></select>
         </div>
         <button class="btn" type="submit" id="b-novo">Cadastrar</button>
       </form>
@@ -226,9 +232,13 @@ dialog .botoes { display: flex; justify-content: flex-end; gap: 8px; }
           <button type="button" data-f="fora" aria-pressed="false">Fora do lugar<b id="c-fora">0</b></button>
           <button type="button" data-f="descartado" aria-pressed="false">Descartados<b id="c-descartado">0</b></button>
         </div>
-        <button type="button" class="btn-sec" id="b-cats">Gerenciar categorias</button>
+        <div class="gerenciar">
+          <button type="button" class="btn-sec" data-gerenciar="categorias"><span class="longo">Gerenciar categorias</span><span class="curto">Categorias</span></button>
+          <button type="button" class="btn-sec" data-gerenciar="locais"><span class="longo">Gerenciar locais</span><span class="curto">Locais</span></button>
+        </div>
         <div class="barra-dir">
-          <select id="filtro-cat" aria-label="Filtrar por categoria"><option value="">Todas as categorias</option></select>
+          <select id="filtro-cat" class="filtro-lista" data-lista="categorias" aria-label="Filtrar por categoria"><option value="">Todas as categorias</option></select>
+          <select id="filtro-local" class="filtro-lista" data-lista="locais" aria-label="Filtrar por local"><option value="">Todos os locais</option></select>
           <input id="busca" type="search" placeholder="Buscar número, descrição ou local" aria-label="Buscar">
         </div>
       </div>
@@ -274,9 +284,8 @@ dialog .botoes { display: flex; justify-content: flex-end; gap: 8px; }
     </div>
     <div class="campo" id="w-local">
       <label class="label" for="d-local">Local</label>
-      <input id="d-local" maxlength="60" placeholder="Ex.: CPD" list="locais" autocomplete="off">
+      <select id="d-local"><option value="">Sem local</option></select>
     </div>
-    <datalist id="locais"></datalist>
     <div class="campo" id="w-data">
       <label class="label" for="d-data">Data</label>
       <input id="d-data" type="date">
@@ -295,11 +304,11 @@ dialog .botoes { display: flex; justify-content: flex-end; gap: 8px; }
 
 <dialog id="dlg-cats">
   <form id="form-cats" method="dialog">
-    <h2>Categorias</h2>
+    <h2 id="cats-titulo">Categorias</h2>
     <p class="alvo">Para renomear, edite o nome e aperte Enter. Os equipamentos acompanham a mudança.</p>
     <ul class="cat-lista" id="cat-lista"></ul>
     <div class="cat-nova">
-      <input id="cat-nova" maxlength="60" placeholder="Nova categoria" aria-label="Nova categoria">
+      <input id="cat-nova" maxlength="60" placeholder="Nova categoria" aria-label="Novo nome">
       <button type="button" class="btn" id="b-cat-add">Adicionar</button>
     </div>
     <p class="msg" id="msg-cats" role="status"></p>
@@ -312,15 +321,12 @@ dialog .botoes { display: flex; justify-content: flex-end; gap: 8px; }
 <script>
 const ROTULO = { "no-lugar": "No lugar", emprestado: "Emprestado", defeito: "Defeito / conserto", outro: "Fora (outro motivo)" };
 const TITULO = { saida: "Registrar saída", retorno: "Registrar retorno", descartar: "Descartar equipamento", editar: "Editar equipamento" };
-// Local: texto livre; se já existir com outra grafia (cpd/CPD), usa a grafia já cadastrada.
-const limpaLocal = v => { const t = v.trim().replace(/\s+/g, " "); return locaisUsados().find(l => l.toLowerCase() === t.toLowerCase()) || t; };
-const locaisUsados = () => [...new Set(itens.map(i => i.local).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
 const MOTIVO = { emprestado: "Empréstimo", defeito: "Defeito / conserto", descartado: "Descarte", outro: "Outro motivo" };
 const $ = s => document.querySelector(s);
 const configurado = /^https:\/\//.test(window.SUPABASE_URL || "") && !!window.SUPABASE_ANON_KEY && !/COLE_AQUI/.test(window.SUPABASE_ANON_KEY);
 // O inventário mora no schema "inventario", separado dos outros sistemas do mesmo projeto Supabase.
 const sb = configurado ? supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, { db: { schema: "inventario" } }) : null;
-let itens = [], descartes = [], categorias = [], carregado = false, filtro = "todos", filtroCat = "", busca = "", atual = null, modo = "saida";
+let itens = [], descartes = [], categorias = [], locais = [], carregado = false, filtro = "todos", busca = "", atual = null, modo = "saida";
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hoje = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
@@ -331,8 +337,20 @@ const erroTexto = e => e?.code === "23505" ? "Já existe um equipamento com esse
   e?.code === "P0001" ? e.message :
   e?.code === "42501" ? "Você não tem permissão para alterar este inventário." : "Não foi possível salvar. Verifique a conexão e tente de novo.";
 const catNome = id => categorias.find(c => c.id === id)?.nome || "";
-const casaCat = i => !filtroCat || (filtroCat === "_sem" ? !catNome(i.categoria_id) : i.categoria_id === Number(filtroCat));
-const casaCatDesc = i => !filtroCat || (filtroCat === "_sem" ? !i.categoria : i.categoria === catNome(Number(filtroCat)));
+const localNome = id => locais.find(l => l.id === id)?.nome || "";
+// Categorias e locais são listas cadastradas que funcionam do mesmo jeito.
+const LISTAS = {
+  categorias: { campo: "categoria_id", nome: catNome, desc: "categoria", singular: "categoria", artigo: "a", titulo: "Categorias", nova: "Nova categoria", sem: "Sem categoria", todas: "Todas as categorias", selects: ["#f-cat", "#d-cat"], filtro: "#filtro-cat" },
+  locais:     { campo: "local_id",     nome: localNome, desc: "local",   singular: "local",     artigo: "o", titulo: "Locais",     nova: "Novo local",     sem: "Sem local",     todas: "Todos os locais",     selects: ["#f-local", "#d-local"], filtro: "#filtro-local" },
+};
+const lista = t => t === "locais" ? locais : categorias;
+const filtros = { categorias: "", locais: "" };
+// Equipamentos guardam o id; descartados guardam o nome que a categoria/local tinha no descarte.
+const casaListas = (i, descartado) => Object.entries(LISTAS).every(([t, L]) => {
+  const f = filtros[t]; if (!f) return true;
+  const nome = descartado ? i[L.desc] : L.nome(i[L.campo]);
+  return f === "_sem" ? !nome : descartado ? nome === L.nome(Number(f)) : i[L.campo] === Number(f);
+});
 function msg(el, texto, erro) { el.textContent = texto; el.classList.toggle("erro", !!erro); }
 
 // ---- login ----
@@ -373,16 +391,16 @@ $("#sair").addEventListener("click", () => sb.auth.signOut());
 
 // ---- dados ----
 async function carregar() {
-  const [eq, ds, cs] = await Promise.all([
+  const [eq, ds, cs, ls] = await Promise.all([
     sb.from("equipamentos").select("*, movimentacoes(*)").order("criado_em", { referencedTable: "movimentacoes", ascending: false }),
     sb.from("descartados").select("*"),
     sb.from("categorias").select("id, nome"),
+    sb.from("locais").select("id, nome"),
   ]);
   carregado = true;
-  if (eq.error || ds.error || cs.error) { itens = []; descartes = []; render("Não foi possível carregar o inventário. Recarregue a página."); return; }
-  itens = eq.data; descartes = ds.data; categorias = cs.data;
-  $("#locais").innerHTML = locaisUsados().map(l => `<option value="${esc(l)}"></option>`).join("");
-  preencherSelects(); renderCats(); render();
+  if (eq.error || ds.error || cs.error || ls.error) { itens = []; descartes = []; render("Não foi possível carregar o inventário. Recarregue a página."); return; }
+  itens = eq.data; descartes = ds.data; categorias = cs.data; locais = ls.data;
+  preencherSelects(); renderLista(); render();
 }
 window.addEventListener("focus", () => { if (!$("#tela-app").hidden) carregar(); });
 
@@ -404,14 +422,14 @@ function render(falha) {
   for (const k in cont) $("#c-" + k).textContent = cont[k];
 
   const q = busca.trim().toLowerCase();
-  const casa = i => !q || [i.numero, i.descricao, i.local].some(v => (v || "").toLowerCase().includes(q));
+  const casa = (i, descartado) => !q || [i.numero, i.descricao, descartado ? i.local : localNome(i.local_id)].some(v => (v || "").toLowerCase().includes(q));
   const abertos = new Set([...document.querySelectorAll("details.hist[open]")].map(d => d.dataset.id));
   const naLixeira = filtro === "descartado";
   $("#nota-desc").hidden = !naLixeira;
 
   let vis;
   if (naLixeira) {
-    vis = descartes.filter(i => casa(i) && casaCatDesc(i)).sort((a, b) => b.data.localeCompare(a.data) || porNumero(a, b));
+    vis = descartes.filter(i => casa(i, true) && casaListas(i, true)).sort((a, b) => b.data.localeCompare(a.data) || porNumero(a, b));
     $("#lista").innerHTML = vis.map(i => `<li class="item s-descartado">
       <div class="tag" title="Número original ${esc(i.numero)}">${esc(i.numero)}</div>
       <div class="info"><div class="desc">${esc(i.descricao)}</div>
@@ -427,7 +445,7 @@ function render(falha) {
       </details>
     </li>`).join("");
   } else {
-    vis = itens.filter(i => (filtro === "todos" || (filtro === "fora" ? fora(i.situacao) : i.situacao === filtro)) && casa(i) && casaCat(i)).sort(porNumero);
+    vis = itens.filter(i => (filtro === "todos" || (filtro === "fora" ? fora(i.situacao) : i.situacao === filtro)) && casa(i) && casaListas(i)).sort(porNumero);
     $("#lista").innerHTML = vis.map(i => {
       const sit = i.situacao;
       const det = sit === "no-lugar" ? "" : `${i.destino ? (sit === "emprestado" ? "com " : "· ") + esc(i.destino) + " " : ""}desde ${fmt(i.desde)}`;
@@ -437,7 +455,7 @@ function render(falha) {
       return `<li class="item s-${sit}">
         <div class="tag" title="${esc(i.numero)}">${esc(i.numero)}</div>
         <div class="info"><div class="desc">${esc(i.descricao)}</div>
-          <div class="estado">${catNome(i.categoria_id) ? `<span class="cat">${esc(catNome(i.categoria_id))}</span>` : ""}<span class="pill p-${sit}">${ROTULO[sit] || esc(sit)}</span>${i.local ? `<span class="local" title="Local">${esc(i.local)}</span>` : ""}<span>${det}</span></div></div>
+          <div class="estado">${catNome(i.categoria_id) ? `<span class="cat">${esc(catNome(i.categoria_id))}</span>` : ""}<span class="pill p-${sit}">${ROTULO[sit] || esc(sit)}</span>${localNome(i.local_id) ? `<span class="local" title="Local">${esc(localNome(i.local_id))}</span>` : ""}<span>${det}</span></div></div>
         <div class="acoes">${botao}<button class="btn-perigo" data-acao="descartar" data-id="${i.id}">Descartar</button></div>
         <details class="hist" data-id="${i.id}" ${abertos.has(String(i.id)) ? "open" : ""}><summary>Histórico (${(i.movimentacoes || []).length})</summary>
           <ol>${histHtml(i.movimentacoes)}</ol>
@@ -464,14 +482,14 @@ $("#filtros").addEventListener("click", e => {
   render();
 });
 $("#busca").addEventListener("input", e => { busca = e.target.value; render(); });
-$("#filtro-cat").addEventListener("change", e => { filtroCat = e.target.value; render(); });
+document.querySelectorAll(".filtro-lista").forEach(sel => sel.addEventListener("change", e => { filtros[e.target.dataset.lista] = e.target.value; render(); }));
 
 $("#form-novo").addEventListener("submit", async e => {
   e.preventDefault();
   const el = $("#msg-novo"), numero = $("#f-num").value.trim(), descricao = $("#f-desc").value.trim();
   if (!numero || !descricao) return msg(el, "Preencha o número e a descrição.", true);
   $("#b-novo").disabled = true;
-  const { error } = await sb.from("equipamentos").insert({ numero, descricao, categoria_id: Number($("#f-cat").value) || null, local: limpaLocal($("#f-local").value), desde: hoje() });
+  const { error } = await sb.from("equipamentos").insert({ numero, descricao, categoria_id: Number($("#f-cat").value) || null, local_id: Number($("#f-local").value) || null, desde: hoje() });
   $("#b-novo").disabled = false;
   if (error) return msg(el, error.code === "23505" ? `O número ${numero} já está em uso. Para reutilizar, descarte o item atual antes.` : erroTexto(error), true);
   const reuso = descartes.some(d => d.numero.toLowerCase() === numero.toLowerCase());
@@ -495,7 +513,7 @@ $("#lista").addEventListener("click", e => {
   mostrar("#w-motivo", modo === "saida"); mostrar("#w-destino", modo === "saida");
   mostrar("#w-porque", modo === "descartar"); mostrar("#w-oque", modo === "descartar");
   mostrar("#w-data", modo !== "editar"); mostrar("#w-obs", modo !== "editar"); mostrar("#w-desc", modo === "editar"); mostrar("#w-cat", modo === "editar"); mostrar("#w-local", modo === "editar");
-  $("#d-local").value = atual.local || "";
+  $("#d-local").value = localNome(atual.local_id) ? String(atual.local_id) : "";
   $("#d-cat").value = catNome(atual.categoria_id) ? String(atual.categoria_id) : "";
   $("#d-motivo").value = "emprestado"; $("#d-destino").value = ""; $("#d-obs").value = "";
   $("#d-porque").value = ""; $("#d-oque").value = "";
@@ -523,7 +541,7 @@ $("#form-dlg").addEventListener("submit", async e => {
   } else if (modo === "editar") {
     const d = $("#d-desc").value.trim();
     if (!d) { $("#d-ok").disabled = false; return msg(el, "A descrição não pode ficar vazia.", true); }
-    res = await sb.from("equipamentos").update({ descricao: d, categoria_id: Number($("#d-cat").value) || null, local: limpaLocal($("#d-local").value) }).eq("id", atual.id);
+    res = await sb.from("equipamentos").update({ descricao: d, categoria_id: Number($("#d-cat").value) || null, local_id: Number($("#d-local").value) || null }).eq("id", atual.id);
   } else {
     const motivo = modo === "saida" ? $("#d-motivo").value : null, destino = modo === "saida" ? $("#d-destino").value.trim() : "";
     if (motivo === "emprestado" && !destino) { $("#d-ok").disabled = false; return msg(el, "Informe com quem o equipamento está.", true); }
@@ -535,68 +553,79 @@ $("#form-dlg").addEventListener("submit", async e => {
   carregar();
 });
 
-// ---- categorias ----
+// ---- categorias e locais ----
+let listaAberta = "categorias";
+const ordenada = t => [...lista(t)].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+const maiuscula = t => t[0].toUpperCase() + t.slice(1);
+
 function preencherSelects() {
-  const ops = [...categorias].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
-    .map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join("");
-  for (const sel of ["#f-cat", "#d-cat"]) {
-    const v = $(sel).value; $(sel).innerHTML = `<option value="">Sem categoria</option>` + ops;
-    $(sel).value = categorias.some(c => String(c.id) === v) ? v : "";
+  for (const [t, L] of Object.entries(LISTAS)) {
+    const ops = ordenada(t).map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join("");
+    for (const sel of L.selects) {
+      const v = $(sel).value; $(sel).innerHTML = `<option value="">${L.sem}</option>` + ops;
+      $(sel).value = lista(t).some(c => String(c.id) === v) ? v : "";
+    }
+    if (filtros[t] && filtros[t] !== "_sem" && !lista(t).some(c => String(c.id) === filtros[t])) filtros[t] = "";
+    $(L.filtro).innerHTML = `<option value="">${L.todas}</option>${ops}<option value="_sem">${L.sem}</option>`;
+    $(L.filtro).value = filtros[t];
   }
-  $("#filtro-cat").innerHTML = `<option value="">Todas as categorias</option>${ops}<option value="_sem">Sem categoria</option>`;
-  if (filtroCat && filtroCat !== "_sem" && !categorias.some(c => String(c.id) === filtroCat)) filtroCat = "";
-  $("#filtro-cat").value = filtroCat;
 }
-function renderCats(forcar) {
+function renderLista(forcar) {
   if (!$("#dlg-cats").open) return;
   if (!forcar && $("#cat-lista").contains(document.activeElement)) return;
-  const uso = id => itens.filter(i => i.categoria_id === id).length;
-  $("#cat-lista").innerHTML = [...categorias].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")).map(c => `<li>
-    <input value="${esc(c.nome)}" data-id="${c.id}" maxlength="60" aria-label="Nome da categoria">
+  const L = LISTAS[listaAberta], uso = id => itens.filter(i => i[L.campo] === id).length;
+  $("#cat-lista").innerHTML = ordenada(listaAberta).map(c => `<li>
+    <input value="${esc(c.nome)}" data-id="${c.id}" maxlength="60" aria-label="Nome">
     <span class="uso">${uso(c.id)} ${uso(c.id) === 1 ? "item" : "itens"}</span>
     <button type="button" class="btn-perigo" data-excluir="${c.id}">Excluir</button>
-  </li>`).join("") || `<li class="uso">Nenhuma categoria ainda.</li>`;
+  </li>`).join("") || `<li class="uso">Nenhum${L.artigo === "a" ? "a" : ""} ${L.singular} ainda. Adicione abaixo.</li>`;
 }
-const catErro = (e, nome) => e?.code === "23505" ? `Já existe a categoria ${nome}.` : erroTexto(e);
+const listaErro = (e, nome) => { const L = LISTAS[listaAberta]; return e?.code === "23505" ? `Já existe ${L.artigo} ${L.singular} ${nome}.` : erroTexto(e); };
 
-$("#b-cats").addEventListener("click", () => { msg($("#msg-cats"), ""); $("#dlg-cats").showModal(); renderCats(true); });
+document.querySelectorAll("[data-gerenciar]").forEach(b => b.addEventListener("click", () => {
+  listaAberta = b.dataset.gerenciar;
+  const L = LISTAS[listaAberta];
+  $("#cats-titulo").textContent = L.titulo;
+  $("#cat-nova").placeholder = L.nova; $("#cat-nova").value = "";
+  msg($("#msg-cats"), ""); $("#dlg-cats").showModal(); renderLista(true);
+}));
 $("#b-cats-fechar").addEventListener("click", () => $("#dlg-cats").close());
 $("#form-cats").addEventListener("submit", e => e.preventDefault());
 
-async function adicionarCat() {
-  const el = $("#msg-cats"), nome = $("#cat-nova").value.trim();
-  if (!nome) return msg(el, "Digite o nome da categoria.", true);
-  const { error } = await sb.from("categorias").insert({ nome });
-  if (error) return msg(el, catErro(error, nome), true);
-  $("#cat-nova").value = ""; msg(el, `Categoria ${nome} criada.`);
-  await carregar(); renderCats(true);
+async function adicionarItemLista() {
+  const L = LISTAS[listaAberta], el = $("#msg-cats"), nome = $("#cat-nova").value.trim().replace(/\s+/g, " ");
+  if (!nome) return msg(el, `Digite o nome d${L.artigo} ${L.singular}.`, true);
+  const { error } = await sb.from(listaAberta).insert({ nome });
+  if (error) return msg(el, listaErro(error, nome), true);
+  $("#cat-nova").value = ""; msg(el, `${maiuscula(L.singular)} ${nome} criad${L.artigo}.`);
+  await carregar(); renderLista(true);
 }
-$("#b-cat-add").addEventListener("click", adicionarCat);
-$("#cat-nova").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); adicionarCat(); } });
+$("#b-cat-add").addEventListener("click", adicionarItemLista);
+$("#cat-nova").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); adicionarItemLista(); } });
 
 $("#cat-lista").addEventListener("keydown", e => { if (e.key === "Enter" && e.target.matches("input")) { e.preventDefault(); e.target.blur(); } });
 $("#cat-lista").addEventListener("change", async e => {
   const inp = e.target.closest("input[data-id]"); if (!inp) return;
-  const el = $("#msg-cats"), id = Number(inp.dataset.id), nome = inp.value.trim(), antigo = catNome(id);
+  const L = LISTAS[listaAberta], el = $("#msg-cats"), id = Number(inp.dataset.id), nome = inp.value.trim().replace(/\s+/g, " "), antigo = L.nome(id);
   if (!nome) { inp.value = antigo; return msg(el, "O nome não pode ficar vazio.", true); }
   if (nome === antigo) return;
-  const { error } = await sb.from("categorias").update({ nome }).eq("id", id);
-  if (error) { inp.value = antigo; return msg(el, catErro(error, nome), true); }
+  const { error } = await sb.from(listaAberta).update({ nome }).eq("id", id);
+  if (error) { inp.value = antigo; return msg(el, listaErro(error, nome), true); }
   msg(el, `${antigo} agora se chama ${nome}.`); carregar();
 });
 $("#cat-lista").addEventListener("click", async e => {
   const b = e.target.closest("button[data-excluir]"); if (!b) return;
-  const id = Number(b.dataset.excluir), usados = itens.filter(i => i.categoria_id === id).length;
+  const L = LISTAS[listaAberta], id = Number(b.dataset.excluir), usados = itens.filter(i => i[L.campo] === id).length;
   if (!b.dataset.confirmar) {
     b.dataset.confirmar = "1";
-    b.textContent = usados ? `Confirmar (${usados} ${usados === 1 ? "fica" : "ficam"} sem categoria)` : "Confirmar exclusão";
+    b.textContent = usados ? `Confirmar (${usados} ${usados === 1 ? "fica" : "ficam"} ${L.sem.toLowerCase()})` : "Confirmar exclusão";
     return;
   }
-  const el = $("#msg-cats"), nome = catNome(id);
-  // Os equipamentos dessa categoria ficam "sem categoria" (on delete set null no banco).
-  const { error } = await sb.from("categorias").delete().eq("id", id);
+  const el = $("#msg-cats"), nome = L.nome(id);
+  // Os equipamentos ficam sem categoria/local (on delete set null no banco).
+  const { error } = await sb.from(listaAberta).delete().eq("id", id);
   if (error) return msg(el, erroTexto(error), true);
-  msg(el, `Categoria ${nome} excluída.`); await carregar(); renderCats(true);
+  msg(el, `${maiuscula(L.singular)} ${nome} excluíd${L.artigo}.`); await carregar(); renderLista(true);
 });
 
 $("#b-abrir-novo").addEventListener("click", () => {

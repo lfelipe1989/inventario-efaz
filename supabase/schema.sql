@@ -25,12 +25,20 @@ create table inventario.categorias (
 create unique index categorias_nome_unico on inventario.categorias (lower(nome));
 insert into inventario.categorias (nome) values ('Eletrônicos'), ('Ferramentas'), ('Mobiliário');
 
+-- Locais cadastrados (onde o equipamento fica), editáveis pela página como as categorias.
+create table inventario.locais (
+  id         bigint generated always as identity primary key,
+  nome       text not null check (trim(nome) <> ''),
+  criado_em  timestamptz not null default now()
+);
+create unique index locais_nome_unico on inventario.locais (lower(nome));
+
 create table inventario.equipamentos (
   id            bigint generated always as identity primary key,
   numero        text not null,
   descricao     text not null,
   categoria_id  bigint references inventario.categorias (id) on delete set null,
-  local         text not null default '',
+  local_id      bigint references inventario.locais (id) on delete set null,
   situacao      text not null default 'no-lugar'
                 check (situacao in ('no-lugar', 'emprestado', 'defeito', 'outro')),
   destino       text not null default '',
@@ -39,6 +47,7 @@ create table inventario.equipamentos (
 );
 create unique index equipamentos_numero_unico on inventario.equipamentos (lower(numero));
 create index equipamentos_categoria on inventario.equipamentos (categoria_id);
+create index equipamentos_local on inventario.equipamentos (local_id);
 
 create table inventario.movimentacoes (
   id              bigint generated always as identity primary key,
@@ -118,7 +127,7 @@ begin
   if not found then raise exception 'Equipamento não encontrado.'; end if;
   insert into inventario.descartados (numero, descricao, categoria, local, data, porque, oque, obs, historico, registrado_por)
   select eq.numero, eq.descricao, (select c.nome from inventario.categorias c where c.id = eq.categoria_id),
-    nullif(eq.local, ''), p_data, p_porque, p_oque, nullif(p_obs, ''),
+    (select l.nome from inventario.locais l where l.id = eq.local_id), p_data, p_porque, p_oque, nullif(p_obs, ''),
     jsonb_build_array(jsonb_build_object('tipo', 'descarte', 'porque', p_porque, 'data', p_data,
                                          'obs', nullif(p_obs, ''), 'registrado_por', quem))
       || coalesce((select jsonb_agg(to_jsonb(m) - 'id' - 'equipamento_id' order by m.criado_em desc)
@@ -138,6 +147,7 @@ grant execute on function inventario.autorizado(), inventario.registrar_moviment
 
 alter table inventario.usuarios      enable row level security;
 alter table inventario.categorias    enable row level security;
+alter table inventario.locais        enable row level security;
 alter table inventario.equipamentos  enable row level security;
 alter table inventario.movimentacoes enable row level security;
 alter table inventario.descartados   enable row level security;
@@ -146,6 +156,10 @@ create policy "autorizados veem categorias"        on inventario.categorias    f
 create policy "autorizados criam categorias"       on inventario.categorias    for insert to authenticated with check (inventario.autorizado());
 create policy "autorizados renomeiam categorias"   on inventario.categorias    for update to authenticated using (inventario.autorizado()) with check (inventario.autorizado());
 create policy "autorizados excluem categorias"     on inventario.categorias    for delete to authenticated using (inventario.autorizado());
+create policy "autorizados veem locais"            on inventario.locais        for select to authenticated using (inventario.autorizado());
+create policy "autorizados criam locais"           on inventario.locais        for insert to authenticated with check (inventario.autorizado());
+create policy "autorizados renomeiam locais"       on inventario.locais        for update to authenticated using (inventario.autorizado()) with check (inventario.autorizado());
+create policy "autorizados excluem locais"         on inventario.locais        for delete to authenticated using (inventario.autorizado());
 create policy "autorizados veem equipamentos"      on inventario.equipamentos  for select to authenticated using (inventario.autorizado());
 create policy "autorizados cadastram equipamentos" on inventario.equipamentos  for insert to authenticated with check (inventario.autorizado());
 create policy "autorizados alteram equipamentos"   on inventario.equipamentos  for update to authenticated using (inventario.autorizado()) with check (inventario.autorizado());

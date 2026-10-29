@@ -1,6 +1,6 @@
 # Inventário de Equipamentos · efaz
 
-Cadastro de equipamentos por número, descrição, categoria (editáveis; Eletrônicos, Ferramentas e Mobiliário já vêm cadastradas) e local, com registro de saídas (empréstimo, defeito, outro) e retornos. Itens descartados vão para uma lista separada com o número original, a data, o motivo e o destino; o número fica livre para outro equipamento. Os dados ficam no Supabase; a página é estática e pode ficar no GitHub Pages.
+Cadastro de equipamentos por número, descrição, categoria e local (as duas são listas editáveis pela página; Eletrônicos, Ferramentas e Mobiliário já vêm cadastradas), com registro de saídas (empréstimo, defeito, outro) e retornos. Itens descartados vão para uma lista separada com o número original, a data, o motivo e o destino; o número fica livre para outro equipamento. Os dados ficam no Supabase; a página é estática e pode ficar no GitHub Pages.
 
 ## Onde está
 
@@ -29,6 +29,6 @@ O ícone da efaz aparece na tela inicial e o sistema abre em tela cheia, como um
 
 - `index.html` — o sistema inteiro (tela de login, cadastro, lista e histórico)
 - `config.js` — endereço e chave pública do Supabase
-- `supabase/schema.sql` — schema `inventario`: tabelas (usuários autorizados, categorias, equipamentos, histórico, descartados), funções e regras de acesso
+- `supabase/schema.sql` — schema `inventario`: tabelas (usuários autorizados, categorias, locais, equipamentos, histórico, descartados), funções e regras de acesso
 - `manifest.webmanifest`, `sw.js`, `icon-*.png`, `apple-touch-icon.png` — o que permite instalar no celular
 - `logo-efaz.png` — logo (provisório, recortado de um print do site; trocar pelo arquivo oficial)
