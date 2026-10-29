@@ -23,6 +23,10 @@ Não use *Send invitation* do painel: o link do convite leva para o *Site URL* d
 
 Para tirar o acesso: `delete from inventario.usuarios where email = 'email.da.pessoa@exemplo.com';`
 
+## Backup em Excel
+
+O botão **Exportar Excel** (no topo, embaixo de "Sair") baixa `inventario-efaz-AAAA-MM-DD.xlsx` com cinco abas: Equipamentos, Histórico (incluindo o dos descartados), Descartados, Categorias e Locais. As datas saem como datas do Excel, e cada aba já vem com filtro no cabeçalho.
+
 ## Instalar no celular
 
 Depois de publicado, abra o endereço do GitHub Pages no celular:

@@ -44,7 +44,12 @@ body { background: var(--bg); color: var(--ink); font-family: var(--f-body); fon
 .topo .titulos { flex: 1; min-width: 0; border-left: 1px solid var(--band-ink); padding-left: 18px; }
 .topo h1 { color: var(--band-ink); }
 .topo .sub { color: var(--band-ink); opacity: .85; font-style: italic; margin: 2px 0 0; }
-.sessao { font-size: 0.85rem; color: var(--band-ink); display: flex; gap: 10px; align-items: center; }
+.sessao { font-size: 0.85rem; color: var(--band-ink); display: grid; justify-items: end; gap: 6px; }
+.sessao .linha { display: flex; gap: 10px; align-items: center; }
+.sessao .btn-link { color: var(--band-ink); }
+.exportar { font-size: 0.78rem; font-weight: 700; padding: 3px 9px; min-height: 0; border-radius: 6px; background: var(--surface); color: var(--band-ink); border: 1px solid var(--band-ink); }
+.exportar:hover { background: var(--bg); }
+.exportar .curto { display: none; }
 .wrap { max-width: 860px; margin: 0 auto; padding-block: 24px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 22px; }
 h1 { font-family: var(--f-display); font-weight: 700; font-size: 1.7rem; letter-spacing: -0.01em; margin: 0; line-height: 1.15; text-wrap: balance; }
 .label { font-family: var(--f-display); font-size: 0.74rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
@@ -137,6 +142,9 @@ dialog .botoes { display: flex; justify-content: flex-end; gap: 8px; }
   .logo { height: 30px; }
   .topo .titulos { padding-left: 12px; }
   #usuario { display: none; }
+  .sessao .exportar { min-height: 30px; font-size: 0.75rem; padding: 2px 8px; }
+  .exportar .longo { display: none; }
+  .exportar .curto { display: inline; }
   .novo form { grid-template-columns: 1fr; }
   .barra-dir { flex-wrap: wrap; }
   .filtro-lista { max-width: none; flex: 1 1 100%; min-width: 0; }
@@ -186,7 +194,10 @@ dialog .botoes { display: flex; justify-content: flex-end; gap: 8px; }
     <h1>Inventário de Equipamentos</h1>
     <p class="sub">Toda saída e retorno fica registrada no histórico.</p>
   </div>
-  <div class="sessao" id="sessao" hidden><span id="usuario"></span><button class="btn-link" id="sair">Sair</button></div>
+  <div class="sessao" id="sessao" hidden>
+    <div class="linha"><span id="usuario"></span><button class="btn-link" id="sair">Sair</button></div>
+    <button type="button" class="exportar" id="b-exportar" title="Baixa um arquivo Excel com todo o inventário"><span class="longo">Exportar Excel</span><span class="curto">Excel</span></button>
+  </div>
 </div></header>
 
 <div class="wrap">
@@ -459,9 +470,10 @@ async function carregar() {
     sb.from("locais").select("id, nome"),
   ]);
   carregado = true;
-  if (eq.error || ds.error || cs.error || ls.error) { itens = []; descartes = []; render("Não foi possível carregar o inventário. Recarregue a página."); return; }
+  if (eq.error || ds.error || cs.error || ls.error) { itens = []; descartes = []; render("Não foi possível carregar o inventário. Recarregue a página."); return false; }
   itens = eq.data; descartes = ds.data; categorias = cs.data; locais = ls.data;
   preencherSelects(); renderLista(); render();
+  return true;
 }
 window.addEventListener("focus", () => { if (!$("#tela-app").hidden) carregar(); });
 
@@ -687,6 +699,76 @@ $("#cat-lista").addEventListener("click", async e => {
   const { error } = await sb.from(listaAberta).delete().eq("id", id);
   if (error) return msg(el, erroTexto(error), true);
   msg(el, `${maiuscula(L.singular)} ${nome} excluíd${L.artigo}.`); await carregar(); renderLista(true);
+});
+
+// ---- backup em Excel ----
+// A biblioteca de planilhas só é baixada quando alguém clica em exportar.
+let xlsxPronto = null;
+const carregaXlsx = () => xlsxPronto ||= new Promise((ok, falha) => {
+  const sc = document.createElement("script");
+  sc.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+  sc.onload = () => ok(window.XLSX); sc.onerror = () => { xlsxPronto = null; falha(new Error("xlsx")); };
+  document.head.appendChild(sc);
+});
+const dataExcel = d => { if (!d) return ""; const [a, m, dia] = String(d).slice(0, 10).split("-").map(Number); return new Date(a, m - 1, dia); };
+const dataHoraExcel = t => t ? new Date(t) : "";
+const TIPO_HIST = { cadastro: "Cadastro", saida: "Saída", retorno: "Retorno", descarte: "Descarte" };
+
+function aba(XLSX, linhas, cabecalho) {
+  const ws = XLSX.utils.json_to_sheet(linhas, { header: cabecalho, cellDates: true, dateNF: "dd/mm/yyyy" });
+  if (!linhas.length) XLSX.utils.sheet_add_aoa(ws, [cabecalho]);
+  // Colunas "... em" guardam data e hora.
+  cabecalho.forEach((c, col) => { if (!c.endsWith(" em")) return;
+    for (let r = 1; r <= linhas.length; r++) { const cel = ws[XLSX.utils.encode_cell({ r, c: col })]; if (cel && cel.t === "d") cel.z = "dd/mm/yyyy hh:mm"; } });
+  ws["!cols"] = cabecalho.map(c => ({ wch: Math.min(50, Math.max(c.length, ...linhas.map(l => l[c] instanceof Date ? (c.endsWith(" em") ? 16 : 10) : String(l[c] ?? "").length)) + 2) }));
+  ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(linhas.length, 1), c: cabecalho.length - 1 } }) };
+  return ws;
+}
+
+$("#b-exportar").addEventListener("click", async () => {
+  const b = $("#b-exportar"), original = b.innerHTML;
+  b.disabled = true; b.textContent = "Gerando…";
+  try {
+    const [XLSX, carregou] = await Promise.all([carregaXlsx(), carregar()]);
+    if (!carregou) throw new Error("dados");
+    const equipamentos = [...itens].sort(porNumero).map(i => ({
+      "Número": i.numero, "Descrição": i.descricao, "Categoria": catNome(i.categoria_id), "Local": localNome(i.local_id),
+      "Situação": ROTULO[i.situacao] || i.situacao, "Com quem / onde": i.destino || "", "Desde": dataExcel(i.desde),
+      "Cadastrado em": dataHoraExcel(i.criado_em),
+    }));
+    const historico = [];
+    for (const i of itens) for (const h of i.movimentacoes || []) historico.push({
+      "Número": i.numero, "Descrição": i.descricao, "Data": dataExcel(h.data), "Tipo": TIPO_HIST[h.tipo] || h.tipo,
+      "Motivo": h.motivo ? MOTIVO[h.motivo] || h.motivo : "", "Com quem / onde": h.destino || "", "Observação": h.obs || "",
+      "Registrado por": h.registrado_por || "", "Registrado em": dataHoraExcel(h.criado_em),
+    });
+    for (const d of descartes) for (const h of d.historico || []) historico.push({
+      "Número": d.numero + " (descartado)", "Descrição": d.descricao, "Data": dataExcel(h.data), "Tipo": TIPO_HIST[h.tipo] || h.tipo,
+      "Motivo": h.tipo === "descarte" ? h.porque : h.motivo ? MOTIVO[h.motivo] || h.motivo : "", "Com quem / onde": h.destino || "",
+      "Observação": h.obs || "", "Registrado por": h.registrado_por || "", "Registrado em": dataHoraExcel(h.criado_em),
+    });
+    historico.sort((a, b) => (b["Data"] || 0) - (a["Data"] || 0) || String(a["Número"]).localeCompare(String(b["Número"]), "pt-BR", { numeric: true }));
+    const descartados = [...descartes].sort((a, b) => String(b.data).localeCompare(String(a.data))).map(d => ({
+      "Número original": d.numero, "Descrição": d.descricao, "Categoria": d.categoria || "", "Local": d.local || "",
+      "Data do descarte": dataExcel(d.data), "Por quê": d.porque, "O que foi feito": d.oque, "Observação": d.obs || "",
+      "Registrado por": d.registrado_por || "",
+    }));
+    const contagem = (lista, campo) => lista.map(c => ({ "Nome": c.nome, "Itens": itens.filter(i => i[campo] === c.id).length }))
+      .sort((a, b) => a["Nome"].localeCompare(b["Nome"], "pt-BR"));
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, aba(XLSX, equipamentos, ["Número", "Descrição", "Categoria", "Local", "Situação", "Com quem / onde", "Desde", "Cadastrado em"]), "Equipamentos");
+    XLSX.utils.book_append_sheet(wb, aba(XLSX, historico, ["Número", "Descrição", "Data", "Tipo", "Motivo", "Com quem / onde", "Observação", "Registrado por", "Registrado em"]), "Histórico");
+    XLSX.utils.book_append_sheet(wb, aba(XLSX, descartados, ["Número original", "Descrição", "Categoria", "Local", "Data do descarte", "Por quê", "O que foi feito", "Observação", "Registrado por"]), "Descartados");
+    XLSX.utils.book_append_sheet(wb, aba(XLSX, contagem(categorias, "categoria_id"), ["Nome", "Itens"]), "Categorias");
+    XLSX.utils.book_append_sheet(wb, aba(XLSX, contagem(locais, "local_id"), ["Nome", "Itens"]), "Locais");
+    XLSX.writeFile(wb, `inventario-efaz-${hoje()}.xlsx`, { cellDates: true });
+    b.textContent = "Arquivo baixado";
+  } catch {
+    b.textContent = "Não deu certo, tente de novo";
+  } finally {
+    setTimeout(() => { b.innerHTML = original; b.disabled = false; }, 2500);
+  }
 });
 
 $("#b-abrir-novo").addEventListener("click", () => {
