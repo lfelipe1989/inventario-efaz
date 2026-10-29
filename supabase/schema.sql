@@ -30,6 +30,7 @@ create table inventario.equipamentos (
   numero        text not null,
   descricao     text not null,
   categoria_id  bigint references inventario.categorias (id) on delete set null,
+  local         text not null default '',
   situacao      text not null default 'no-lugar'
                 check (situacao in ('no-lugar', 'emprestado', 'defeito', 'outro')),
   destino       text not null default '',
@@ -59,6 +60,7 @@ create table inventario.descartados (
   numero          text not null,
   descricao       text not null,
   categoria       text,
+  local           text,
   data            date not null,
   porque          text not null,
   oque            text not null,
@@ -114,9 +116,9 @@ begin
   end if;
   select * into eq from inventario.equipamentos where id = p_equipamento_id for update;
   if not found then raise exception 'Equipamento não encontrado.'; end if;
-  insert into inventario.descartados (numero, descricao, categoria, data, porque, oque, obs, historico, registrado_por)
+  insert into inventario.descartados (numero, descricao, categoria, local, data, porque, oque, obs, historico, registrado_por)
   select eq.numero, eq.descricao, (select c.nome from inventario.categorias c where c.id = eq.categoria_id),
-    p_data, p_porque, p_oque, nullif(p_obs, ''),
+    nullif(eq.local, ''), p_data, p_porque, p_oque, nullif(p_obs, ''),
     jsonb_build_array(jsonb_build_object('tipo', 'descarte', 'porque', p_porque, 'data', p_data,
                                          'obs', nullif(p_obs, ''), 'registrado_por', quem))
       || coalesce((select jsonb_agg(to_jsonb(m) - 'id' - 'equipamento_id' order by m.criado_em desc)

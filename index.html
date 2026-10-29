@@ -50,7 +50,7 @@ h1 { font-family: var(--f-display); font-weight: 700; font-size: 1.7rem; letter-
 .label { font-family: var(--f-display); font-size: 0.74rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 
 .caixa { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 10px; }
-.novo form { display: grid; grid-template-columns: 130px 1fr 190px auto; gap: 10px; align-items: end; }
+.novo form { display: grid; grid-template-columns: 110px minmax(0, 1fr) 170px 150px auto; gap: 10px; align-items: end; }
 .login { max-width: 380px; margin: 24px auto 0; width: 100%; }
 .login form { display: grid; gap: 12px; }
 .campo { display: grid; gap: 4px; min-width: 0; }
@@ -76,6 +76,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 #filtro-cat { width: auto; max-width: 240px; flex: none; }
 #busca { flex: 1; min-width: 0; }
 .cat { font-size: 0.8rem; font-weight: 700; color: var(--accent); }
+.local { font-size: 0.75rem; font-weight: 700; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 0 7px; overflow-wrap: anywhere; }
 .cat-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 45vh; overflow-y: auto; }
 .cat-lista li { display: flex; gap: 6px; align-items: center; }
 .cat-lista input { flex: 1; min-width: 0; }
@@ -123,6 +124,10 @@ dialog h2 { font-family: var(--f-display); font-size: 1.25rem; margin: 0; }
 dialog .alvo { margin: -6px 0 0; color: var(--muted); overflow-wrap: anywhere; }
 dialog .botoes { display: flex; justify-content: flex-end; gap: 8px; }
 
+@media (max-width: 860px) and (min-width: 621px) {
+  .novo form { grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr); }
+  #b-novo { grid-column: 1 / -1; }
+}
 @media (max-width: 620px) {
   .topo > div { flex-wrap: nowrap; gap: 12px; }
   .logo { height: 30px; }
@@ -198,11 +203,15 @@ dialog .botoes { display: flex; justify-content: flex-end; gap: 8px; }
         </div>
         <div class="campo">
           <label class="label" for="f-desc">Descrição</label>
-          <input id="f-desc" required maxlength="200" placeholder="Ex.: Projetor Epson, sala 3">
+          <input id="f-desc" required maxlength="200" placeholder="Ex.: Projetor Epson">
         </div>
         <div class="campo">
           <label class="label" for="f-cat">Categoria</label>
           <select id="f-cat"><option value="">Sem categoria</option></select>
+        </div>
+        <div class="campo">
+          <label class="label" for="f-local">Local</label>
+          <input id="f-local" maxlength="60" placeholder="Ex.: CPD" list="locais" autocomplete="off">
         </div>
         <button class="btn" type="submit" id="b-novo">Cadastrar</button>
       </form>
@@ -220,7 +229,7 @@ dialog .botoes { display: flex; justify-content: flex-end; gap: 8px; }
         <button type="button" class="btn-sec" id="b-cats">Gerenciar categorias</button>
         <div class="barra-dir">
           <select id="filtro-cat" aria-label="Filtrar por categoria"><option value="">Todas as categorias</option></select>
-          <input id="busca" type="search" placeholder="Buscar número ou descrição" aria-label="Buscar">
+          <input id="busca" type="search" placeholder="Buscar número, descrição ou local" aria-label="Buscar">
         </div>
       </div>
       <p class="nota" id="nota-desc" hidden>Itens que saíram do inventário de vez. O número original fica registrado aqui e já pode ser usado em outro equipamento.</p>
@@ -263,6 +272,11 @@ dialog .botoes { display: flex; justify-content: flex-end; gap: 8px; }
       <label class="label" for="d-cat">Categoria</label>
       <select id="d-cat"><option value="">Sem categoria</option></select>
     </div>
+    <div class="campo" id="w-local">
+      <label class="label" for="d-local">Local</label>
+      <input id="d-local" maxlength="60" placeholder="Ex.: CPD" list="locais" autocomplete="off">
+    </div>
+    <datalist id="locais"></datalist>
     <div class="campo" id="w-data">
       <label class="label" for="d-data">Data</label>
       <input id="d-data" type="date">
@@ -298,6 +312,9 @@ dialog .botoes { display: flex; justify-content: flex-end; gap: 8px; }
 <script>
 const ROTULO = { "no-lugar": "No lugar", emprestado: "Emprestado", defeito: "Defeito / conserto", outro: "Fora (outro motivo)" };
 const TITULO = { saida: "Registrar saída", retorno: "Registrar retorno", descartar: "Descartar equipamento", editar: "Editar equipamento" };
+// Local: texto livre; se já existir com outra grafia (cpd/CPD), usa a grafia já cadastrada.
+const limpaLocal = v => { const t = v.trim().replace(/\s+/g, " "); return locaisUsados().find(l => l.toLowerCase() === t.toLowerCase()) || t; };
+const locaisUsados = () => [...new Set(itens.map(i => i.local).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
 const MOTIVO = { emprestado: "Empréstimo", defeito: "Defeito / conserto", descartado: "Descarte", outro: "Outro motivo" };
 const $ = s => document.querySelector(s);
 const configurado = /^https:\/\//.test(window.SUPABASE_URL || "") && !!window.SUPABASE_ANON_KEY && !/COLE_AQUI/.test(window.SUPABASE_ANON_KEY);
@@ -364,6 +381,7 @@ async function carregar() {
   carregado = true;
   if (eq.error || ds.error || cs.error) { itens = []; descartes = []; render("Não foi possível carregar o inventário. Recarregue a página."); return; }
   itens = eq.data; descartes = ds.data; categorias = cs.data;
+  $("#locais").innerHTML = locaisUsados().map(l => `<option value="${esc(l)}"></option>`).join("");
   preencherSelects(); renderCats(); render();
 }
 window.addEventListener("focus", () => { if (!$("#tela-app").hidden) carregar(); });
@@ -386,7 +404,7 @@ function render(falha) {
   for (const k in cont) $("#c-" + k).textContent = cont[k];
 
   const q = busca.trim().toLowerCase();
-  const casa = i => !q || i.numero.toLowerCase().includes(q) || i.descricao.toLowerCase().includes(q);
+  const casa = i => !q || [i.numero, i.descricao, i.local].some(v => (v || "").toLowerCase().includes(q));
   const abertos = new Set([...document.querySelectorAll("details.hist[open]")].map(d => d.dataset.id));
   const naLixeira = filtro === "descartado";
   $("#nota-desc").hidden = !naLixeira;
@@ -397,7 +415,7 @@ function render(falha) {
     $("#lista").innerHTML = vis.map(i => `<li class="item s-descartado">
       <div class="tag" title="Número original ${esc(i.numero)}">${esc(i.numero)}</div>
       <div class="info"><div class="desc">${esc(i.descricao)}</div>
-        <div class="estado">${i.categoria ? `<span class="cat">${esc(i.categoria)}</span>` : ""}<span class="pill p-descartado">Descartado</span><span>em ${fmt(i.data)}</span></div></div>
+        <div class="estado">${i.categoria ? `<span class="cat">${esc(i.categoria)}</span>` : ""}<span class="pill p-descartado">Descartado</span>${i.local ? `<span class="local" title="Local">${esc(i.local)}</span>` : ""}<span>em ${fmt(i.data)}</span></div></div>
       <dl class="descarte-info">
         <div><dt>Por quê</dt><dd>${esc(i.porque)}</dd></div>
         <div><dt>O que foi feito</dt><dd>${esc(i.oque)}</dd></div>
@@ -419,11 +437,11 @@ function render(falha) {
       return `<li class="item s-${sit}">
         <div class="tag" title="${esc(i.numero)}">${esc(i.numero)}</div>
         <div class="info"><div class="desc">${esc(i.descricao)}</div>
-          <div class="estado">${catNome(i.categoria_id) ? `<span class="cat">${esc(catNome(i.categoria_id))}</span>` : ""}<span class="pill p-${sit}">${ROTULO[sit] || esc(sit)}</span><span>${det}</span></div></div>
+          <div class="estado">${catNome(i.categoria_id) ? `<span class="cat">${esc(catNome(i.categoria_id))}</span>` : ""}<span class="pill p-${sit}">${ROTULO[sit] || esc(sit)}</span>${i.local ? `<span class="local" title="Local">${esc(i.local)}</span>` : ""}<span>${det}</span></div></div>
         <div class="acoes">${botao}<button class="btn-perigo" data-acao="descartar" data-id="${i.id}">Descartar</button></div>
         <details class="hist" data-id="${i.id}" ${abertos.has(String(i.id)) ? "open" : ""}><summary>Histórico (${(i.movimentacoes || []).length})</summary>
           <ol>${histHtml(i.movimentacoes)}</ol>
-          <div class="extra"><button class="btn-link" data-acao="editar" data-id="${i.id}">Editar descrição ou categoria</button></div>
+          <div class="extra"><button class="btn-link" data-acao="editar" data-id="${i.id}">Editar descrição, categoria ou local</button></div>
         </details>
       </li>`;
     }).join("");
@@ -453,7 +471,7 @@ $("#form-novo").addEventListener("submit", async e => {
   const el = $("#msg-novo"), numero = $("#f-num").value.trim(), descricao = $("#f-desc").value.trim();
   if (!numero || !descricao) return msg(el, "Preencha o número e a descrição.", true);
   $("#b-novo").disabled = true;
-  const { error } = await sb.from("equipamentos").insert({ numero, descricao, categoria_id: Number($("#f-cat").value) || null, desde: hoje() });
+  const { error } = await sb.from("equipamentos").insert({ numero, descricao, categoria_id: Number($("#f-cat").value) || null, local: limpaLocal($("#f-local").value), desde: hoje() });
   $("#b-novo").disabled = false;
   if (error) return msg(el, error.code === "23505" ? `O número ${numero} já está em uso. Para reutilizar, descarte o item atual antes.` : erroTexto(error), true);
   const reuso = descartes.some(d => d.numero.toLowerCase() === numero.toLowerCase());
@@ -476,7 +494,8 @@ $("#lista").addEventListener("click", e => {
   mostrar("#d-aviso", modo === "descartar");
   mostrar("#w-motivo", modo === "saida"); mostrar("#w-destino", modo === "saida");
   mostrar("#w-porque", modo === "descartar"); mostrar("#w-oque", modo === "descartar");
-  mostrar("#w-data", modo !== "editar"); mostrar("#w-obs", modo !== "editar"); mostrar("#w-desc", modo === "editar"); mostrar("#w-cat", modo === "editar");
+  mostrar("#w-data", modo !== "editar"); mostrar("#w-obs", modo !== "editar"); mostrar("#w-desc", modo === "editar"); mostrar("#w-cat", modo === "editar"); mostrar("#w-local", modo === "editar");
+  $("#d-local").value = atual.local || "";
   $("#d-cat").value = catNome(atual.categoria_id) ? String(atual.categoria_id) : "";
   $("#d-motivo").value = "emprestado"; $("#d-destino").value = ""; $("#d-obs").value = "";
   $("#d-porque").value = ""; $("#d-oque").value = "";
@@ -504,7 +523,7 @@ $("#form-dlg").addEventListener("submit", async e => {
   } else if (modo === "editar") {
     const d = $("#d-desc").value.trim();
     if (!d) { $("#d-ok").disabled = false; return msg(el, "A descrição não pode ficar vazia.", true); }
-    res = await sb.from("equipamentos").update({ descricao: d, categoria_id: Number($("#d-cat").value) || null }).eq("id", atual.id);
+    res = await sb.from("equipamentos").update({ descricao: d, categoria_id: Number($("#d-cat").value) || null, local: limpaLocal($("#d-local").value) }).eq("id", atual.id);
   } else {
     const motivo = modo === "saida" ? $("#d-motivo").value : null, destino = modo === "saida" ? $("#d-destino").value.trim() : "";
     if (motivo === "emprestado" && !destino) { $("#d-ok").disabled = false; return msg(el, "Informe com quem o equipamento está.", true); }

@@ -1,6 +1,6 @@
 # Inventário de Equipamentos · efaz
 
-Cadastro de equipamentos por número, descrição e categoria (editáveis; Eletrônicos, Ferramentas e Mobiliário já vêm cadastradas), com registro de saídas (empréstimo, defeito, outro) e retornos. Itens descartados vão para uma lista separada com o número original, a data, o motivo e o destino; o número fica livre para outro equipamento. Os dados ficam no Supabase; a página é estática e pode ficar no GitHub Pages.
+Cadastro de equipamentos por número, descrição, categoria (editáveis; Eletrônicos, Ferramentas e Mobiliário já vêm cadastradas) e local, com registro de saídas (empréstimo, defeito, outro) e retornos. Itens descartados vão para uma lista separada com o número original, a data, o motivo e o destino; o número fica livre para outro equipamento. Os dados ficam no Supabase; a página é estática e pode ficar no GitHub Pages.
 
 ## Onde está
 
