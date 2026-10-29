@@ -53,6 +53,8 @@ h1 { font-family: var(--f-display); font-weight: 700; font-size: 1.7rem; letter-
 .novo form { display: grid; grid-template-columns: 110px minmax(0, 1fr) 170px 150px auto; gap: 10px; align-items: end; }
 .login { max-width: 380px; margin: 24px auto 0; width: 100%; }
 .login form { display: grid; gap: 12px; }
+.login .btn-link { justify-self: start; color: var(--accent); }
+.login .dica { margin: 0; color: var(--muted); font-size: 0.9rem; }
 .campo { display: grid; gap: 4px; min-width: 0; }
 input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 9px 11px; width: 100%; }
 input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -195,6 +197,25 @@ dialog .botoes { display: flex; justify-content: flex-end; gap: 8px; }
       <div class="campo"><label class="label" for="l-senha">Senha</label><input id="l-senha" type="password" required autocomplete="current-password"></div>
       <button class="btn" type="submit" id="b-login">Entrar</button>
       <p class="msg" id="msg-login" role="status"></p>
+      <button type="button" class="btn-link" id="b-primeiro">Primeiro acesso ou esqueci minha senha</button>
+    </form>
+    <form id="form-link" hidden>
+      <p class="dica">Digite seu e-mail. Você vai receber um link para criar uma senha nova.</p>
+      <div class="campo"><label class="label" for="r-email">E-mail</label><input id="r-email" type="email" required autocomplete="username"></div>
+      <button class="btn" type="submit" id="b-link">Enviar link</button>
+      <p class="msg" id="msg-link" role="status"></p>
+      <button type="button" class="btn-link" id="b-voltar">Voltar para o login</button>
+    </form>
+  </section>
+
+  <section class="caixa login" id="tela-senha" hidden aria-labelledby="t-senha">
+    <span class="label" id="t-senha">Criar senha</span>
+    <form id="form-senha">
+      <p class="dica" id="senha-para"></p>
+      <div class="campo"><label class="label" for="s-nova">Nova senha</label><input id="s-nova" type="password" required minlength="8" autocomplete="new-password"></div>
+      <div class="campo"><label class="label" for="s-repete">Repita a senha</label><input id="s-repete" type="password" required minlength="8" autocomplete="new-password"></div>
+      <button class="btn" type="submit" id="b-senha">Salvar senha e entrar</button>
+      <p class="msg" id="msg-senha" role="status"></p>
     </form>
   </section>
 
@@ -324,6 +345,9 @@ const TITULO = { saida: "Registrar saída", retorno: "Registrar retorno", descar
 const MOTIVO = { emprestado: "Empréstimo", defeito: "Defeito / conserto", descartado: "Descarte", outro: "Outro motivo" };
 const $ = s => document.querySelector(s);
 const configurado = /^https:\/\//.test(window.SUPABASE_URL || "") && !!window.SUPABASE_ANON_KEY && !/COLE_AQUI/.test(window.SUPABASE_ANON_KEY);
+// Links de e-mail (criar/recuperar senha, convite) chegam com o tipo e eventuais erros no endereço.
+const doLink = new URLSearchParams(location.hash.slice(1));
+let definindoSenha = ["recovery", "invite"].includes(doLink.get("type"));
 // O inventário mora no schema "inventario", separado dos outros sistemas do mesmo projeto Supabase.
 const sb = configurado ? supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, { db: { schema: "inventario" } }) : null;
 let itens = [], descartes = [], categorias = [], locais = [], carregado = false, filtro = "todos", busca = "", atual = null, modo = "saida";
@@ -365,6 +389,9 @@ async function mostrarTela(session) {
       msg($("#msg-login"), `O login ${session.user.email} não tem acesso ao inventário. Peça para incluírem seu e-mail na lista.`, true);
     }
   }
+  const criarSenha = logado && definindoSenha;
+  $("#tela-senha").hidden = !criarSenha;
+  if (criarSenha) { $("#senha-para").textContent = `Para ${session.user.email}. Use pelo menos 8 caracteres.`; logado = false; $("#tela-login").hidden = true; $("#tela-app").hidden = true; $("#sessao").hidden = true; return; }
   $("#tela-login").hidden = logado;
   $("#tela-app").hidden = !logado;
   $("#sessao").hidden = !logado;
@@ -377,7 +404,11 @@ if (!sb) {
   msg($("#msg-login"), "Sistema ainda não configurado: preencha o endereço e a chave do Supabase no arquivo config.js.", true);
 } else {
 sb.auth.getSession().then(({ data }) => mostrarTela(data.session));
-sb.auth.onAuthStateChange((evento, session) => { if (evento !== "TOKEN_REFRESHED") mostrarTela(session); });
+sb.auth.onAuthStateChange((evento, session) => {
+  if (evento === "PASSWORD_RECOVERY") definindoSenha = true;
+  if (evento !== "TOKEN_REFRESHED") mostrarTela(session);
+});
+if (doLink.get("error")) msg($("#msg-login"), "Esse link expirou ou já foi usado. Peça um novo em \"Primeiro acesso ou esqueci minha senha\".", true);
 }
 
 $("#form-login").addEventListener("submit", async e => {
@@ -388,6 +419,36 @@ $("#form-login").addEventListener("submit", async e => {
   msg($("#msg-login"), error ? "E-mail ou senha incorretos." : "", !!error);
 });
 $("#sair").addEventListener("click", () => sb.auth.signOut());
+
+// ---- primeiro acesso / esqueci minha senha ----
+const trocaForm = link => { $("#form-login").hidden = link; $("#form-link").hidden = !link; $("#t-login").textContent = link ? "Primeiro acesso ou nova senha" : "Entrar"; };
+$("#b-primeiro").addEventListener("click", () => { $("#r-email").value = $("#l-email").value; msg($("#msg-link"), ""); trocaForm(true); $("#r-email").focus(); });
+$("#b-voltar").addEventListener("click", () => trocaForm(false));
+$("#form-link").addEventListener("submit", async e => {
+  e.preventDefault();
+  const el = $("#msg-link"), email = $("#r-email").value.trim();
+  $("#b-link").disabled = true;
+  // O link volta para esta mesma página (o endereço precisa estar em Redirect URLs no Supabase).
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+  $("#b-link").disabled = false;
+  if (error?.status === 429) return msg(el, "Muitos pedidos seguidos. Espere um minuto e tente de novo.", true);
+  if (error) return msg(el, "Não foi possível enviar o link agora. Tente de novo em instantes.", true);
+  msg(el, `Se ${email} tiver acesso, o link chega em alguns minutos. Confira também a caixa de spam.`);
+});
+$("#form-senha").addEventListener("submit", async e => {
+  e.preventDefault();
+  const el = $("#msg-senha"), senha = $("#s-nova").value;
+  if (senha.length < 8) return msg(el, "A senha precisa ter pelo menos 8 caracteres.", true);
+  if (senha !== $("#s-repete").value) return msg(el, "As duas senhas não são iguais.", true);
+  $("#b-senha").disabled = true;
+  const { error } = await sb.auth.updateUser({ password: senha });
+  $("#b-senha").disabled = false;
+  if (error) return msg(el, error.code === "same_password" ? "Use uma senha diferente da anterior." : "Não foi possível salvar a senha. Peça um link novo e tente de novo.", true);
+  definindoSenha = false;
+  history.replaceState(null, "", location.pathname);
+  const { data } = await sb.auth.getSession();
+  mostrarTela(data.session);
+});
 
 // ---- dados ----
 async function carregar() {

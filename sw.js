@@ -1,5 +1,5 @@
 // Guarda a "casca" do app para abrir rápido no celular. Os dados vêm sempre do Supabase (nunca do cache).
-const CACHE = "inventario-v4";
+const CACHE = "inventario-v5";
 const ARQUIVOS = ["./", "index.html", "config.js", "logo-efaz.png", "manifest.webmanifest", "icon-192.png"];
 
 self.addEventListener("install", e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARQUIVOS)).then(() => self.skipWaiting())));

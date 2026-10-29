@@ -9,10 +9,17 @@ Cadastro de equipamentos por número, descrição, categoria e local (as duas s�
 
 ## Quem pode usar
 
-O login do Supabase é compartilhado com os outros sistemas do projeto, então só entra no inventário quem estiver na tabela `inventario.usuarios`. Para dar acesso a alguém:
+O login do Supabase é compartilhado com os outros sistemas do projeto, então só entra no inventário quem estiver na tabela `inventario.usuarios`.
 
-1. Crie o login da pessoa em *Authentication → Users → Add user* (se ela ainda não tiver).
+**Uma vez só:** em *Authentication → URL Configuration → Redirect URLs*, adicione `https://lfelipe1989.github.io/inventario-efaz/` (é para onde o link de criar senha leva; não muda nada nos outros sistemas).
+
+**Para dar acesso a alguém:**
+
+1. Em *Authentication → Users → Add user → Create new user*, crie o login com o e-mail da pessoa, qualquer senha (ninguém precisa saber) e *Auto Confirm User* marcado. Se a pessoa já usa outro sistema do projeto, pule este passo.
 2. No *SQL Editor*: `insert into inventario.usuarios (email) values ('email.da.pessoa@exemplo.com');`
+3. Avise a pessoa: abrir o inventário, clicar em **Primeiro acesso ou esqueci minha senha**, digitar o e-mail e seguir o link que chega para criar a própria senha.
+
+Não use *Send invitation* do painel: o link do convite leva para o *Site URL* do projeto, que é de outro sistema.
 
 Para tirar o acesso: `delete from inventario.usuarios where email = 'email.da.pessoa@exemplo.com';`
 
